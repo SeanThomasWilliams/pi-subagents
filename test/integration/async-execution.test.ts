@@ -220,8 +220,9 @@ describe("async execution utilities", { skip: !available ? "pi packages not avai
 		assert.deepEqual(payload.results[0].attemptedModels, ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"]);
 		assert.equal(payload.results[0].modelAttempts.length, 2);
 		const statusPayload = JSON.parse(fs.readFileSync(path.join(asyncDir, "status.json"), "utf-8"));
-		assert.ok(statusPayload.totalTokens.total > 0);
-		assert.ok(statusPayload.steps[0].tokens.total > 0);
+		assert.equal(statusPayload.steps[0].model, "anthropic/claude-sonnet-4");
+		assert.deepEqual(statusPayload.steps[0].attemptedModels, ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"]);
+		assert.equal(statusPayload.steps[0].modelAttempts.length, 2);
 		assert.match(fs.readFileSync(path.join(asyncDir, "output-0.log"), "utf-8"), /Recovered asynchronously/);
 		assert.equal(mockPi.callCount(), 2);
 	});
@@ -404,6 +405,50 @@ describe("async execution utilities", { skip: !available ? "pi packages not avai
 		} finally {
 			removeTempDir(chainCwd);
 		}
+	});
+
+	it("returns async launch guidance telling the orchestrator it is safe to end the turn", { skip: !isAsyncAvailable() ? "jiti not available" : undefined }, () => {
+		const singleId = `async-guidance-single-${Date.now().toString(36)}`;
+		const singleResult = executeAsyncSingle(singleId, {
+			agent: "worker",
+			task: "Do work",
+			agentConfig: makeAgent("worker"),
+			ctx: { pi: { events: { emit() {} } }, cwd: tempDir, currentSessionId: "session-1" },
+			artifactConfig: {
+				enabled: false,
+				includeInput: false,
+				includeOutput: false,
+				includeJsonl: false,
+				includeMetadata: false,
+				cleanupDays: 7,
+			},
+			shareEnabled: false,
+			sessionRoot: path.join(tempDir, "sessions"),
+			maxSubagentDepth: 2,
+		});
+		assert.equal(singleResult.isError, undefined);
+		assert.match(singleResult.content[0]?.text ?? "", /Safe next step: end your turn now/i);
+		assert.match(singleResult.content[0]?.text ?? "", /subagent_status\(\{ id: "/i);
+
+		const chainId = `async-guidance-chain-${Date.now().toString(36)}`;
+		const chainResult = executeAsyncChain(chainId, {
+			chain: [{ agent: "worker", task: "Do work" }],
+			agents: [makeAgent("worker")],
+			ctx: { pi: { events: { emit() {} } }, cwd: tempDir, currentSessionId: "session-1" },
+			artifactConfig: {
+				enabled: false,
+				includeInput: false,
+				includeOutput: false,
+				includeJsonl: false,
+				includeMetadata: false,
+				cleanupDays: 7,
+			},
+			shareEnabled: false,
+			sessionRoot: path.join(tempDir, "sessions"),
+			maxSubagentDepth: 2,
+		});
+		assert.equal(chainResult.isError, undefined);
+		assert.match(chainResult.content[0]?.text ?? "", /Completion behavior: this session will be notified/i);
 	});
 
 	it("returns a tool error when the detached runner config cannot be written", { skip: !isAsyncAvailable() ? "jiti not available" : undefined }, () => {

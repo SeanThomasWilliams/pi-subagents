@@ -157,6 +157,16 @@ function formatAsyncStartError(mode: "single" | "chain", message: string): Async
 	};
 }
 
+function formatAsyncLaunchText(summary: string, id: string): string {
+	return [
+		`${summary} [${id}]`,
+		"Background run launched successfully.",
+		"Safe next step: end your turn now unless the user explicitly asked for another launch.",
+		"Completion behavior: this session will be notified when the run finishes and the results will be available for follow-up.",
+		`Use subagent_status({ id: \"${id}\" }) in a later turn only if you need to inspect status or fetch details.`,
+	].join("\n");
+}
+
 /**
  * Execute a chain asynchronously
  */
@@ -337,7 +347,7 @@ export function executeAsyncChain(
 		.join(" -> ");
 
 	return {
-		content: [{ type: "text", text: `Async chain: ${chainDesc} [${id}]` }],
+		content: [{ type: "text", text: formatAsyncLaunchText(`Async chain: ${chainDesc}`, id) }],
 		details: { mode: "chain", results: [], asyncId: id, asyncDir },
 	};
 }
@@ -455,7 +465,7 @@ export function executeAsyncSingle(
 	}
 
 	return {
-		content: [{ type: "text", text: `Async: ${agent} [${id}]` }],
+		content: [{ type: "text", text: formatAsyncLaunchText(`Async: ${agent}`, id) }],
 		details: { mode: "single", results: [], asyncId: id, asyncDir },
 	};
 }
