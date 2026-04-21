@@ -597,6 +597,29 @@ describe("fork context execution wiring", { skip: !available ? "subagent executo
 		assert.match(result.content[0]?.text ?? "", /task 2 \(second\) sets cwd/i);
 	});
 
+	it("blocks chain execution when disabled by config", async () => {
+		const { manager } = makeSessionManagerRecorder({ sessionFile: "/tmp/parent.jsonl", leafId: "leaf-chain" });
+		const executor = makeExecutorWithConfig({ allowChainExecution: false });
+
+		const result = await executor.execute(
+			"id",
+			{
+				chain: [
+					{ agent: "echo", task: "step one" },
+					{ agent: "second", task: "step two" },
+				],
+				task: "Run the chain",
+			},
+			new AbortController().signal,
+			undefined,
+			makeCtx(manager),
+		);
+
+		assert.equal(result.isError, true);
+		assert.match(result.content[0]?.text ?? "", /chain execution is disabled by local policy/i);
+		assert.equal(mockPi.callCount(), 0);
+	});
+
 	it("creates isolated forked sessions per chain step (including counted parallel steps)", async () => {
 		const { manager, openedPaths, branchedLeafIds } = makeForkingSessionManagerRecorder({
 			sessionFile: path.join(tempDir, "parent-chain.jsonl"),

@@ -123,6 +123,7 @@ function resolveRequestedCwd(runtimeCwd: string, requestedCwd: string | undefine
 function validateExecutionInput(
 	params: SubagentParamsLike,
 	agents: AgentConfig[],
+	config: ExtensionConfig,
 	hasChain: boolean,
 	hasTasks: boolean,
 	hasSingle: boolean,
@@ -142,6 +143,16 @@ function validateExecutionInput(
 	}
 
 	if (hasChain && params.chain) {
+		if (config.allowChainExecution === false) {
+			return {
+				content: [{
+					type: "text",
+					text: "Chain execution is disabled by local policy. Use tasks for independent work instead of chain.",
+				}],
+				isError: true,
+				details: { mode: "chain" as const, results: [] },
+			};
+		}
 		if (params.chain.length === 0) {
 			return {
 				content: [{ type: "text", text: "Chain must have at least one step" }],
@@ -1243,6 +1254,7 @@ export function createSubagentExecutor(deps: ExecutorDeps): {
 		const validationError = validateExecutionInput(
 			effectiveParams,
 			agents,
+			deps.config,
 			hasChain,
 			hasTasks,
 			hasSingle,

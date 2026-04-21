@@ -9,6 +9,7 @@ interface SubagentParamsSchema {
 			description?: string;
 		};
 		tasks?: {
+			description?: string;
 			items?: {
 				properties?: {
 					count?: {
@@ -17,6 +18,9 @@ interface SubagentParamsSchema {
 					};
 				};
 			};
+		};
+		chain?: {
+			description?: string;
 		};
 		concurrency?: {
 			minimum?: number;
@@ -64,6 +68,18 @@ describe("SubagentParams schema", { skip: !available ? "typebox not available" :
 		assert.ok(concurrencySchema, "concurrency schema should exist");
 		assert.equal(concurrencySchema.minimum, 1);
 		assert.match(String(concurrencySchema.description ?? ""), /parallel/i);
+	});
+
+	it("describes when to use parallel vs chain mode", () => {
+		const tasksSchema = SubagentParams?.properties?.tasks;
+		assert.ok(tasksSchema, "tasks schema should exist");
+		assert.match(String(tasksSchema.description ?? ""), /independent/i);
+		assert.match(String(tasksSchema.description ?? ""), /instead of chain/i);
+
+		const chainSchema = SubagentParams?.properties?.chain;
+		assert.ok(chainSchema, "chain schema should exist");
+		assert.match(String(chainSchema.description ?? ""), /dependent/i);
+		assert.match(String(chainSchema.description ?? ""), /\{previous\}/);
 	});
 
 	it("includes action on status params for list mode", () => {

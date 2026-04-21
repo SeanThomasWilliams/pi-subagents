@@ -252,16 +252,22 @@ export default function registerSubagentExtension(pi: ExtensionAPI): void {
 
 EXECUTION (use exactly ONE mode):
 • SINGLE: { agent, task } - one task
-• CHAIN: { chain: [{agent:"scout"}, {parallel:[{agent:"worker",count:3}]}] } - sequential pipeline with optional parallel fan-out
-• PARALLEL: { tasks: [{agent,task,count?}, ...], concurrency?: number, worktree?: true } - concurrent execution (worktree: isolate each task in a git worktree)
+• PARALLEL: { tasks: [{agent,task,count?}, ...], concurrency?: number, worktree?: true } - concurrent execution for independent tasks (worktree: isolate each task in a git worktree)
+• CHAIN: { chain: [{agent:"scout"}, {agent:"planner"}] } - sequential pipeline only when later steps need earlier output via {previous}
 • Optional context: { context: "fresh" | "fork" } (default: "fresh")
+
+MODE SELECTION RULES:
+• Use PARALLEL when tasks are independent and can run at the same time.
+• Use CHAIN only when step N needs {previous} from step N-1.
+• Do NOT use CHAIN to fan out multiple independent workers. Use PARALLEL instead.
+• Allowed example: { tasks: [{agent:"scout", task:"Inspect backend logs"}, {agent:"reviewer", task:"Review frontend changes"}] }
+• Allowed example: { chain: [{agent:"scout", task:"Analyze {task}"}, {agent:"planner", task:"Plan based on {previous}"}] }
+• Disallowed example: { chain: [{agent:"worker", task:"Check API"}, {agent:"worker", task:"Check UI"}] } // independent work belongs in tasks[]
 
 CHAIN TEMPLATE VARIABLES (use in task strings):
 • {task} - The original task/request from the user
 • {previous} - Text response from the previous step (empty for first step)
 • {chain_dir} - Shared directory for chain files (e.g., <tmpdir>/pi-subagents-<scope>/chain-runs/abc123/)
-
-Example: { chain: [{agent:"scout", task:"Analyze {task}"}, {agent:"planner", task:"Plan based on {previous}"}] }
 
 MANAGEMENT (use action field, omit agent/task/chain/tasks):
 • { action: "list" } - discover agents/chains
